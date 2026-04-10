@@ -1,0 +1,267 @@
+LINKUP — Инструкции для Claude Code
+=====================================
+
+Читай этот файл ПЕРВЫМ перед любой задачей.
+
+
+=======================================================
+ЧТО МЫ СТРОИМ
+=======================================================
+
+GPS-трекинг курьеров + CRM для малого бизнеса.
+Подробно о продукте: 01_IDEA.txt, 02_PRD.txt.
+
+Три части проекта:
+  web/          — Next.js дашборд для бизнеса + публичная страница трекинга
+  backend/      — Node.js + Express API сервер + Socket.io
+  courier-app/  — React Native + Expo, приложение курьера
+
+БД: PostgreSQL (Prisma) + Redis.
+Полная схема: 04_DATABASE.txt.
+Задачи: 05_ROADMAP.txt — текущий этап, берёшь незакрытые [ ].
+
+
+=======================================================
+СТЕК (полный список)
+=======================================================
+
+web:
+  Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
+  TanStack Query, Zustand
+  Socket.io-client, 2GIS Maps API, Recharts
+
+backend:
+  Node.js 20, Express 4, TypeScript
+  Prisma (PostgreSQL), ioredis (Redis), Socket.io
+  zod, jsonwebtoken, bcrypt, node-cron, multer
+
+courier-app:
+  React Native, Expo, TypeScript
+  expo-location, expo-notifications, expo-secure-store, expo-router
+
+Внешние сервисы:
+  SendPulse — SMS (Этап 2)
+  WhatsApp Business API (Этап 2)
+  Firebase FCM — Push для курьеров
+  2GIS Maps API — карты
+
+
+=======================================================
+СТРУКТУРА ПАПОК
+=======================================================
+
+backend/
+  prisma/
+    schema.prisma
+    migrations/
+  src/
+    routes/
+      auth.ts
+      couriers.ts
+      gps.ts
+      orders.ts
+      tracking.ts      ← публичный, без авторизации
+      settings.ts
+      customers.ts     ← CRM (Этап 2)
+      scenarios.ts     ← CRM (Этап 2)
+      tasks.ts         ← CRM (Этап 2)
+      analytics.ts     ← (Этап 2)
+      shifts.ts        ← (Этап 2)
+    services/
+      auth.service.ts
+      courier.service.ts
+      order.service.ts
+      crm.service.ts
+      scenario.service.ts
+      notification.service.ts
+    middleware/
+      auth.ts          ← authenticateBusiness, authenticateCourier, requireRole
+      validate.ts      ← Zod валидация
+      errorHandler.ts
+    socket/
+      index.ts         ← Socket.io инициализация и обработчики
+    cron/
+      segments.ts      ← пересчёт сегментов (03:00 ежедневно)
+      scenarios.ts     ← проверка триггеров (каждые 15 мин)
+    lib/
+      prisma.ts        ← Prisma singleton
+      redis.ts         ← ioredis singleton
+    index.ts           ← точка входа
+
+web/
+  app/
+    (auth)/
+      login/page.tsx
+      register/page.tsx
+    (app)/              ← всё что требует авторизации
+      dashboard/page.tsx
+      orders/
+        page.tsx
+        new/page.tsx
+        [id]/page.tsx
+      couriers/
+        page.tsx
+        shifts/page.tsx
+      customers/
+        page.tsx
+        [id]/page.tsx
+      scenarios/page.tsx
+      tasks/page.tsx
+      analytics/
+        couriers/page.tsx
+        crm/page.tsx
+      settings/page.tsx
+    track/
+      [token]/page.tsx  ← публичная, без авторизации
+  components/
+    map/               ← компоненты карты 2GIS
+    ui/                ← shadcn компоненты
+  lib/
+    api.ts
+    socket.ts
+  store/
+    auth.ts            ← Zustand
+
+courier-app/
+  app/
+    index.tsx          ← вход
+    orders.tsx         ← список заказов
+    order/
+      [id].tsx         ← детали заказа
+  lib/
+    api.ts
+    gps.ts             ← GPS трекинг логика
+
+
+=======================================================
+ПРАВИЛА КОДА
+=======================================================
+
+ОБЩИЕ ПРАВИЛА
+  TypeScript strict: true везде. Никаких any, использовать unknown или generics.
+  Комментарии писать на русском.
+  Один файл — одна ответственность.
+  Бизнес-логика — в services/, не в routes/.
+
+ИМЕНОВАНИЕ
+  Файлы:            kebab-case     (order.service.ts, courier-card.tsx)
+  React компоненты: PascalCase    (CourierCard.tsx)
+  Функции:          camelCase     (getOrderById, createCrmProfile)
+  Константы:        UPPER_SNAKE   (JWT_EXPIRES_IN)
+  Типы/интерфейсы:  PascalCase    (CreateOrderDto, OrderStatus)
+
+КРИТИЧНО — БЕЗОПАСНОСТЬ
+  businessId всегда из JWT, НИКОГДА из тела запроса.
+  При любом запросе к данным — добавлять businessId в WHERE.
+
+  ПРАВИЛЬНО:
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, businessId: req.user.businessId }
+    })
+
+  НЕПРАВИЛЬНО (IDOR уязвимость):
+    const order = await prisma.order.findFirst({ where: { id: orderId } })
+
+  Это правило применяется везде: заказы, клиенты, курьеры, сценарии, задачи.
+
+GPS ЭНДПОИНТ
+  POST /api/gps/location должен отвечать быстро (< 50ms).
+  Паттерн: сначала ответить клиенту, потом делать медленные операции.
+
+  router.post('/location', authenticateCourier, async (req, res) => {
+    const { lat, lng } = req.body
+    const courierId = req.courier.id
+    const businessId = req.courier.businessId
+
+    // 1. Обновить Redis (быстро)
+    await redis.hset(`courier:location:${courierId}`, { lat, lng, updatedAt: Date.now() })
+    await redis.expire(`courier:location:${courierId}`, 30)
+
+    // 2. Emit через Socket.io (быстро)
+    io.to(`business:${businessId}`).emit('courier:location', { courierId, lat, lng })
+
+    // 3. Ответить СЕЙЧАС
+    res.json({ ok: true })
+
+    // 4. Записать в PostgreSQL ПОСЛЕ ответа (асинхронно)
+    prisma.courierLocation.create({ data: { courierId, lat, lng } }).catch(console.error)
+  })
+
+SOCKET.IO ИЗОЛЯЦИЯ
+  Клиент подписывается на order:{orderId} — видит ТОЛЬКО своего курьера.
+  Бизнес подписывается на business:{businessId} — видит ТОЛЬКО своих.
+  При подписке проверять права: клиент через trackingToken, бизнес через JWT.
+
+PRISMA
+  Транзакции при создании заказа (одновременно: Order + Customer + CrmProfile).
+  Миграции: npx prisma migrate dev --name описание
+  Никогда не редактировать файлы migrations/ вручную.
+
+EXPRESS РОУТЫ
+  Валидация входящих данных через Zod в middleware/validate.ts.
+  Структура роута:
+    router.post('/path', authenticateBusiness, validate(schema), async (req, res, next) => {
+      try {
+        const result = await someService.doSomething(req.body, req.user.businessId)
+        res.json(result)
+      } catch (error) {
+        next(error)  // передать в глобальный error handler
+      }
+    })
+
+REACT / NEXT.JS
+  Карта (2GIS) — обязательно 'use client' (нужен WebSocket и браузерные API).
+  /track/[token] — Server Component для SEO + вложенный Client Component для карты.
+  Данные загружать через TanStack Query (useQuery, useMutation).
+  Глобальный стейт — Zustand.
+
+EXPO / REACT NATIVE
+  Background GPS — обязательно правильно запросить разрешение через expo-location.
+  Буферизация при потере сети — хранить координаты в массиве, отправлять пакетом.
+  Кнопки делать крупными (курьер нажимает на ходу, часто на улице).
+
+
+=======================================================
+КОМАНДЫ
+=======================================================
+
+# Запустить backend
+cd backend && npm run dev
+
+# Запустить web
+cd web && npm run dev
+
+# Запустить courier-app
+cd courier-app && npx expo start
+
+# Применить изменения схемы БД
+cd backend && npx prisma migrate dev --name название_изменения
+
+# Посмотреть данные в БД (браузерный UI)
+cd backend && npx prisma studio
+
+# Обновить Prisma клиент после изменений schema.prisma
+cd backend && npx prisma generate
+
+
+=======================================================
+ТЕКУЩИЙ ПРИОРИТЕТ
+=======================================================
+
+Смотри 05_ROADMAP.txt — ЭТАП 0 → ЭТАП 1.
+Берёшь первый незакрытый [ ] и делаешь его.
+
+Порядок внутри Этапа 1:
+  1. Backend: инфраструктура Express + подключение Prisma + Redis
+  2. Backend: Auth (register, login, JWT)
+  3. Backend: Couriers CRUD
+  4. Backend: GPS эндпоинт + Socket.io
+  5. Backend: Orders CRUD + публичный tracking
+  6. Web: Login + Register
+  7. Web: Dashboard с картой (главный wow-момент продукта)
+  8. Web: Orders (создание + список + детали)
+  9. Web: /track/[token] — страница клиента
+  10. Courier App: Login + список заказов + GPS трансляция
+
+К CRM (Этап 2) переходить только когда GPS работает end-to-end:
+  курьер → GPS → Redis → Socket.io → карта в браузере → страница клиента.

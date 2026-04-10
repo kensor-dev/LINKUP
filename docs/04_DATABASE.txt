@@ -1,0 +1,361 @@
+LINKUP — Схема базы данных
+===========================
+
+БД: PostgreSQL 16
+ORM: Prisma
+Файл схемы: backend/prisma/schema.prisma
+
+
+=======================================================
+PRISMA SCHEMA (полная)
+=======================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── БИЗНЕС ───────────────────────────────────────────
+
+model Business {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  logoUrl      String?
+  brandColor   String   @default("#1A56DB")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  users        BusinessUser[]
+  couriers     Courier[]
+  orders       Order[]
+  customers    Customer[]
+  scenarios    Scenario[]
+  tasks        Task[]
+  shifts       Shift[]
+}
+
+model BusinessUser {
+  id           String   @id @default(uuid())
+  businessId   String
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(DISPATCHER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  business     Business  @relation(fields: [businessId], references: [id])
+  tasks        Task[]    @relation("AssignedTo")
+}
+
+enum Role {
+  OWNER
+  DISPATCHER
+}
+
+// ─── КУРЬЕРЫ ──────────────────────────────────────────
+
+model Courier {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  phone      String   @unique
+  photoUrl   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  business   Business          @relation(fields: [businessId], references: [id])
+  orders     Order[]
+  locations  CourierLocation[]
+  shifts     Shift[]
+}
+
+// Текущая/последняя позиция курьера (обновляется при каждом GPS-пинге)
+model CourierLocation {
+  id         String   @id @default(uuid())
+  courierId  String
+  lat        Float
+  lng        Float
+  recordedAt DateTime @default(now())
+
+  courier    Courier  @relation(fields: [courierId], references: [id])
+
+  @@index([courierId, recordedAt(sort: Desc)])
+}
+
+// Смены курьеров
+model Shift {
+  id          String    @id @default(uuid())
+  businessId  String
+  courierId   String
+  date        DateTime  @db.Date
+  startsAt    DateTime
+  endsAt      DateTime
+  startedAt   DateTime?  // фактическое начало (когда нажал "начать смену")
+  finishedAt  DateTime?  // фактический конец
+  ordersCount Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  business    Business  @relation(fields: [businessId], references: [id])
+  courier     Courier   @relation(fields: [courierId], references: [id])
+
+  @@index([businessId, date])
+  @@index([courierId, date])
+}
+
+// ─── КЛИЕНТЫ (те кому доставляют) ────────────────────
+
+model Customer {
+  id         String   @id @default(uuid())
+  businessId String
+  phone      String
+  name       String?
+  email      String?
+  notes      String?
+  tags       String[] @default([])
+  segment    Segment  @default(NEW)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business   Business    @relation(fields: [businessId], references: [id])
+  orders     Order[]
+  profile    CrmProfile?
+  tasks      Task[]
+
+  @@unique([businessId, phone])
+  @@index([businessId, segment])
+}
+
+enum Segment {
+  NEW
+  REGULAR
+  SLEEPING
+  LOST
+}
+
+model CrmProfile {
+  id           String    @id @default(uuid())
+  customerId   String    @unique
+  ordersCount  Int       @default(0)
+  totalSpent   Float     @default(0)
+  avgCheck     Float     @default(0)
+  firstOrderAt DateTime?
+  lastOrderAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  customer     Customer  @relation(fields: [customerId], references: [id])
+}
+
+// ─── ЗАКАЗЫ ───────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(uuid())
+  businessId      String
+  customerId      String
+  courierId       String?
+  status          OrderStatus @default(NEW)
+  trackingToken   String      @unique @default(uuid())
+  deliveryAddress String
+  deliveryLat     Float?
+  deliveryLng     Float?
+  items           Json        @default("[]")   // [{name, qty, price}]
+  totalAmount     Float?
+  notes           String?
+  assignedAt      DateTime?
+  pickedUpAt      DateTime?
+  deliveredAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  business        Business    @relation(fields: [businessId], references: [id])
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  courier         Courier?    @relation(fields: [courierId], references: [id])
+  statusHistory   OrderStatusHistory[]
+  tasks           Task[]
+
+  @@index([businessId, status])
+  @@index([businessId, createdAt(sort: Desc)])
+  @@index([customerId])
+  @@index([trackingToken])
+  @@index([courierId])
+}
+
+enum OrderStatus {
+  NEW
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  status    String
+  comment   String?
+  changedAt DateTime @default(now())
+
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+}
+
+// ─── УВЕДОМЛЕНИЯ ──────────────────────────────────────
+
+model NotificationLog {
+  id          String   @id @default(uuid())
+  businessId  String
+  customerId  String
+  orderId     String?
+  channel     String   // "sms" | "whatsapp"
+  text        String
+  status      String   // "sent" | "failed"
+  sentAt      DateTime @default(now())
+}
+
+// ─── CRM: СЦЕНАРИИ АВТОМАТИЗАЦИИ ─────────────────────
+
+model Scenario {
+  id             String   @id @default(uuid())
+  businessId     String
+  name           String
+  triggerType    String
+  // Примеры triggerType:
+  //   "courier_late"      — курьер опоздал
+  //   "order_failed"      — не застал клиента
+  //   "no_order_days"     — нет заказа N дней
+  //   "first_order"       — первый заказ
+  //   "order_count"       — достиг N заказов
+  //   "ltv_threshold"     — LTV пересёк порог
+  //   "birthday"          — день рождения
+  triggerParams  Json     @default("{}")
+  // Пример: {"minutes": 30} для courier_late
+  // Пример: {"days": 30}    для no_order_days
+  actions        Json
+  // Пример: [
+  //   {"type": "send_sms", "templateText": "Извините за задержку! Промокод: ..."},
+  //   {"type": "create_task", "text": "Позвонить и извиниться"}
+  // ]
+  isActive       Boolean  @default(true)
+  runsCount      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  business       Business          @relation(fields: [businessId], references: [id])
+  logs           ScenarioLog[]
+}
+
+model ScenarioLog {
+  id          String   @id @default(uuid())
+  scenarioId  String
+  customerId  String
+  orderId     String?
+  status      String   // "executed" | "failed" | "skipped"
+  resultJson  Json?
+  executedAt  DateTime @default(now())
+
+  scenario    Scenario @relation(fields: [scenarioId], references: [id])
+
+  @@index([scenarioId, executedAt(sort: Desc)])
+}
+
+// ─── CRM: ЗАДАЧИ ──────────────────────────────────────
+
+model Task {
+  id           String    @id @default(uuid())
+  businessId   String
+  customerId   String?
+  orderId      String?
+  assignedToId String?
+  title        String
+  description  String?
+  status       TaskStatus @default(OPEN)
+  dueAt        DateTime?
+  doneAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  business     Business      @relation(fields: [businessId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  order        Order?        @relation(fields: [orderId], references: [id])
+  assignedTo   BusinessUser? @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  @@index([businessId, status])
+  @@index([assignedToId, status])
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+
+=======================================================
+REDIS — СТРУКТУРА КЛЮЧЕЙ
+=======================================================
+
+courier:location:{courierId}
+  Тип:  Hash {lat, lng, updatedAt}
+  TTL:  30 секунд
+  Цель: актуальная позиция для WebSocket broadcast
+
+courier:online:{courierId}
+  Тип:  String "1"
+  TTL:  35 секунд (чуть больше чем GPS-интервал)
+  Цель: определять онлайн/офлайн статус курьера
+
+user:session:{userId}
+  Тип:  String (JSON с данными пользователя)
+  TTL:  7 дней
+
+tracking:{trackingToken}
+  Тип:  Hash {orderId, courierId, status, businessId}
+  TTL:  48 часов после доставки
+  Цель: быстрый ответ без запроса к БД для публичной страницы
+
+sms:code:{phone}
+  Тип:  String (4-значный код)
+  TTL:  5 минут
+  Цель: верификация курьера при входе
+
+
+=======================================================
+ПОТОК ДАННЫХ GPS (реалтайм)
+=======================================================
+
+[Courier App]
+  → POST /api/gps/location  (каждые 5 секунд)
+    body: { lat, lng }
+    header: Authorization: Bearer <courier_jwt>
+
+[Backend GPS route]
+  → Обновить Redis:
+      HSET courier:location:{id} lat {lat} lng {lng} updatedAt {now}
+      EXPIRE courier:location:{id} 30
+      SET courier:online:{id} 1 EX 35
+  → Записать в CourierLocation (PostgreSQL) — асинхронно после ответа
+  → Emit через Socket.io:
+      в комнату business:{businessId}: событие courier:location
+      в комнату order:{orderId}:       событие courier:location
+        (только если у курьера есть активный заказ)
+  → Ответить: 200 OK
+
+[Web Dashboard]
+  → Подключён к комнате business:{businessId}
+  → Получает courier:location → обновляет маркер на карте
+
+[Клиентская страница /track/:token]
+  → Подключена к комнате order:{orderId}
+  → Получает courier:location → обновляет маркер на карте
+
+Изоляция данных:
+  Клиент видит ТОЛЬКО своего курьера (через trackingToken → orderId)
+  Бизнес видит ТОЛЬКО своих курьеров (businessId из JWT)
+  Курьеры разных бизнесов никогда не смешиваются

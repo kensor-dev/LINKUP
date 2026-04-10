@@ -1,0 +1,155 @@
+LINKUP — Технологический стек
+================================
+
+Принцип: просто, понятно, всё в VSCode.
+Никаких Docker, Kubernetes, Turborepo.
+PostgreSQL и Redis устанавливаются как обычные программы.
+
+
+=======================================================
+СТРУКТУРА ПРОЕКТА
+=======================================================
+
+linkup/                     ← открыть эту папку в VSCode
+  web/                      ← Next.js (дашборд + трекинг для клиента)
+  backend/                  ← Node.js + Express (API сервер)
+  courier-app/              ← React Native + Expo (приложение курьера)
+
+
+=======================================================
+WEB (Next.js)
+=======================================================
+
+Next.js 14+           — фреймворк, App Router
+TypeScript            — язык
+Tailwind CSS          — стили
+shadcn/ui             — готовые компоненты (кнопки, таблицы, формы, графики)
+TanStack Query        — запросы к API, кэширование данных
+Zustand               — глобальный стейт (текущий пользователь, фильтры)
+Socket.io-client      — реалтайм (координаты курьеров)
+2GIS Maps API         — карты (работает в РФ без ограничений)
+Recharts              — графики для аналитики
+
+Запуск:
+  cd web
+  npm install
+  npm run dev   →   http://localhost:3000
+
+
+=======================================================
+BACKEND (Node.js + Express)
+=======================================================
+
+Node.js 20+           — runtime
+Express 4             — HTTP фреймворк
+TypeScript            — язык
+Prisma                — ORM для PostgreSQL
+Socket.io             — WebSocket (GPS реалтайм)
+ioredis               — клиент для Redis
+zod                   — валидация входящих данных
+jsonwebtoken          — JWT токены
+bcrypt                — хэширование паролей
+node-cron             — планировщик задач (пересчёт сегментов)
+multer                — загрузка файлов (фото курьеров, логотипы)
+
+Запуск:
+  cd backend
+  npm install
+  npx prisma migrate dev   ← первый раз, создать таблицы
+  npm run dev              →   http://localhost:3001
+
+Структура папок:
+  backend/
+    prisma/
+      schema.prisma
+    src/
+      routes/             ← Express роуты (auth, orders, couriers, ...)
+      services/           ← бизнес-логика
+      middleware/         ← auth, validation, error handler
+      socket/             ← Socket.io логика
+      cron/               ← планировщик (сегменты, смены)
+      index.ts            ← точка входа
+
+
+=======================================================
+COURIER-APP (React Native + Expo)
+=======================================================
+
+React Native          — фреймворк
+Expo SDK 51+          — инструментарий
+TypeScript            — язык
+expo-location         — GPS (foreground + background)
+expo-notifications    — Push-уведомления о новых заказах
+expo-secure-store     — хранение токена авторизации
+expo-router           — навигация между экранами
+
+Для разработки: телефон с приложением Expo Go + QR-код (эмулятор не нужен)
+
+Запуск:
+  cd courier-app
+  npm install
+  npx expo start   ← сканируй QR-код на телефоне
+
+
+=======================================================
+БАЗЫ ДАННЫХ
+=======================================================
+
+PostgreSQL 16 (основная БД)
+  Хранит: всё — бизнесы, курьеры, заказы, клиенты, CRM, смены, задачи
+  ORM: Prisma
+  Установка: postgresql.org → скачать installer для своей ОС
+
+Redis 7 (реалтайм + кэш)
+  Хранит:
+    Текущие координаты курьеров (TTL 30 секунд)
+    Сессии пользователей
+    Данные для быстрого доступа со страницы трекинга
+  Установка:
+    Mac:     brew install redis && brew services start redis
+    Windows: github.com/microsoftarchive/redis/releases
+
+
+=======================================================
+ВНЕШНИЕ СЕРВИСЫ
+=======================================================
+
+SendPulse             — SMS-уведомления клиентам
+WhatsApp Business API — WhatsApp-уведомления клиентам
+2GIS Maps API         — карты и геокодинг (бесплатный ключ на dev.2gis.ru)
+Firebase FCM          — Push-уведомления в приложение курьера
+
+
+=======================================================
+РАСШИРЕНИЯ VSCODE (установить)
+=======================================================
+
+Prisma                  — подсветка и автодополнение schema.prisma
+ESLint                  — подсветка ошибок в коде
+Prettier                — автоформатирование
+Tailwind CSS IntelliSense — подсказки классов Tailwind
+Thunder Client          — тестировать API прямо в VSCode (как Postman)
+GitLens                 — удобная работа с git историей
+
+Настройки (.vscode/settings.json в корне проекта):
+  {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  }
+
+
+=======================================================
+УБРАНО НАМЕРЕННО
+=======================================================
+
+Docker/Docker Compose  — PostgreSQL и Redis удобнее установить напрямую
+Turborepo              — не нужен для трёх папок
+Fastify                — заменён на Express (проще и знакомее)
+BullMQ                 — очереди задач, заменяем на node-cron для простоты
+Kubernetes             — оркестрация, нужна при больших нагрузках
+Elasticsearch          — хватит обычного SQL ILIKE для поиска
+ClickHouse             — аналитика, хватит PostgreSQL агрегаций
+MongoDB                — всё в PostgreSQL + JSONB для гибких данных

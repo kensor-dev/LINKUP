@@ -1,0 +1,341 @@
+LINKUP — Roadmap и To-Do списки
+=================================
+
+  Этап 0 — Подготовка                  (2–3 дня)
+  Этап 1 — GPS MVP                     (5–6 недель)
+  Этап 2 — GPS расширение + весь CRM   (5–6 недель)
+  Этап 3 — Маркетплейс                 (далёкое будущее)
+
+Принцип: после Этапа 1 — уже можно показывать реальным бизнесам.
+
+
+=======================================================
+ЭТАП 0 — ПОДГОТОВКА (2–3 дня)
+=======================================================
+
+СТРУКТУРА ПРОЕКТА
+  [ ] Создать папку linkup/ и открыть в VSCode
+  [ ] Инициализировать три проекта:
+        cd web          && npx create-next-app@latest . --typescript --tailwind --app
+        cd backend      && npm init -y && npm i typescript ts-node @types/node --save-dev
+        cd courier-app  && npx create-expo-app . --template blank-typescript
+  [ ] Создать .vscode/settings.json в корне с настройками форматирования
+  [ ] Создать .gitignore для всех трёх папок
+  [ ] Инициализировать git репозиторий, создать на GitHub
+
+БАЗА ДАННЫХ
+  [ ] Установить PostgreSQL локально (postgresql.org)
+  [ ] Установить Redis локально
+  [ ] Создать БД: createdb linkup_dev
+  [ ] cd backend && npx prisma init
+  [ ] Скопировать схему из 04_DATABASE.txt в backend/prisma/schema.prisma
+  [ ] npx prisma migrate dev --name init
+  [ ] Проверить через Prisma Studio: npx prisma studio
+
+ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ
+  [ ] Создать backend/.env:
+        DATABASE_URL="postgresql://localhost:5432/linkup_dev"
+        REDIS_URL="redis://localhost:6379"
+        JWT_SECRET="минимум_32_символа_случайной_строки"
+        JWT_REFRESH_SECRET="другая_случайная_строка"
+        PORT=3001
+        FRONTEND_URL="http://localhost:3000"
+  [ ] Создать web/.env.local:
+        NEXT_PUBLIC_API_URL=http://localhost:3001
+        NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+        NEXT_PUBLIC_2GIS_KEY=получить_на_dev.2gis.ru
+  [ ] Создать backend/.env.example (без реальных значений, для git)
+
+ЗАВИСИМОСТИ BACKEND
+  [ ] npm i express cors helmet dotenv
+  [ ] npm i @prisma/client ioredis socket.io
+  [ ] npm i jsonwebtoken bcrypt zod multer node-cron
+  [ ] npm i --save-dev @types/express @types/cors @types/jsonwebtoken
+        @types/bcrypt @types/multer nodemon ts-node typescript
+
+РАСШИРЕНИЯ VSCODE
+  [ ] Установить: Prisma, ESLint, Prettier, Tailwind IntelliSense, Thunder Client
+
+
+=======================================================
+ЭТАП 1 — GPS MVP (5–6 недель)
+=======================================================
+
+──────────────────────────────────────────────────────
+BACKEND
+──────────────────────────────────────────────────────
+
+ИНФРАСТРУКТУРА EXPRESS
+  [ ] src/index.ts — точка входа, создать Express app
+  [ ] Подключить middleware: cors, helmet, express.json()
+  [ ] Подключить Prisma (src/lib/prisma.ts — singleton)
+  [ ] Подключить Redis (src/lib/redis.ts — ioredis клиент)
+  [ ] Инициализировать Socket.io поверх http-сервера (src/socket/index.ts)
+  [ ] Глобальный error handler middleware
+  [ ] Структура роутов: src/routes/ → регистрировать в index.ts
+
+AUTH РОУТЫ
+  [ ] POST /api/auth/register
+        Тело: { businessName, email, password }
+        Создать Business + BusinessUser (роль OWNER)
+        Хэшировать пароль через bcrypt
+        Вернуть: { accessToken, refreshToken, user }
+  [ ] POST /api/auth/login
+        Тело: { email, password }
+        Проверить пароль, создать JWT
+        Вернуть: { accessToken, refreshToken, user }
+  [ ] POST /api/auth/refresh
+        Тело: { refreshToken }
+        Проверить, вернуть новый accessToken
+  [ ] POST /api/auth/courier/send-code
+        Тело: { phone }
+        Найти курьера по телефону, сгенерировать 4-значный код
+        Сохранить в Redis: sms:code:{phone} с TTL 5 минут
+        СЕЙЧАС: вернуть код в ответе (SendPulse добавим позже)
+  [ ] POST /api/auth/courier/verify-code
+        Тело: { phone, code }
+        Проверить код из Redis, вернуть JWT курьера
+  [ ] Middleware: authenticateBusiness — проверить JWT бизнес-пользователя
+  [ ] Middleware: authenticateCourier  — проверить JWT курьера
+  [ ] Middleware: requireRole(role)    — проверить роль
+
+COURIERS РОУТЫ (все защищены: authenticateBusiness)
+  [ ] GET    /api/couriers        — список курьеров бизнеса (+ онлайн-статус из Redis)
+  [ ] POST   /api/couriers        — добавить { name, phone }
+  [ ] PATCH  /api/couriers/:id    — обновить имя/телефон/фото
+  [ ] DELETE /api/couriers/:id    — деактивировать (isActive = false)
+  [ ] GET    /api/couriers/live   — актуальные позиции всех курьеров из Redis
+        Вернуть: [{ courierId, name, lat, lng, updatedAt, isOnline }]
+
+GPS РОУТЫ
+  [ ] POST /api/gps/location      — принять координаты (authenticateCourier)
+        Тело: { lat, lng }
+        1. Обновить Redis: HSET + EXPIRE
+        2. Отправить через Socket.io в комнаты business:X и order:Y
+        3. Записать в CourierLocation асинхронно (не блокировать ответ)
+        Ответить < 50ms
+  [ ] POST /api/gps/online        — курьер начал смену (authenticateCourier)
+  [ ] POST /api/gps/offline       — курьер завершил смену (authenticateCourier)
+
+ORDERS РОУТЫ (authenticateBusiness)
+  [ ] GET  /api/orders            — список заказов
+        Query params: status, courierId, date, search
+  [ ] POST /api/orders            — создать заказ
+        Тело: { customerPhone, customerName?, address, items, notes?, courierId?, totalAmount? }
+        В одной транзакции Prisma:
+          1. Найти или создать Customer (по businessId + phone)
+          2. Создать Order (с trackingToken = uuid)
+          3. Создать или обновить CrmProfile
+  [ ] GET  /api/orders/:id        — детали заказа
+  [ ] PATCH /api/orders/:id/assign  — назначить курьера { courierId }
+  [ ] PATCH /api/orders/:id/status  — обновить статус { status, comment? }
+        Записать в OrderStatusHistory
+        Если DELIVERED → обновить CrmProfile (ordersCount, totalSpent, lastOrderAt)
+  [ ] DELETE /api/orders/:id      — отменить (статус CANCELLED)
+
+TRACKING РОУТ (публичный, без авторизации)
+  [ ] GET /api/tracking/:token    — данные для страницы клиента
+        Найти заказ по trackingToken (сначала Redis, потом PostgreSQL)
+        Если курьер онлайн → взять lat/lng из Redis
+        Вернуть: { status, courier: { name, photoUrl, lat?, lng? },
+                   address, businessName, businessLogoUrl, brandColor }
+
+SETTINGS РОУТЫ (authenticateBusiness)
+  [ ] GET   /api/settings         — настройки бизнеса
+  [ ] PATCH /api/settings         — обновить { name, brandColor }
+  [ ] POST  /api/settings/logo    — загрузить логотип (multer, сохранить в /uploads)
+  [ ] GET   /api/users            — список сотрудников
+  [ ] POST  /api/users/invite     — пригласить { email, role }
+        Создать BusinessUser с временным паролем, отправить email (позже)
+
+SOCKET.IO
+  [ ] Инициализация: подключить к Express http серверу
+  [ ] Аутентификация при подключении: JWT в query ?token=...
+  [ ] Комнаты:
+        business:{businessId}  — дашборд бизнеса
+        order:{orderId}        — страница трекинга клиента
+  [ ] При /api/gps/location → emit('courier:location', { courierId, lat, lng, name })
+  [ ] При PATCH /api/orders/:id/status → emit('order:status', { orderId, status })
+  [ ] Подписка на Redis pub/sub → relay события в Socket.io комнаты
+
+──────────────────────────────────────────────────────
+WEB (Next.js)
+──────────────────────────────────────────────────────
+
+ИНФРАСТРУКТУРА
+  [ ] Установить зависимости: shadcn/ui init, tanstack query, zustand, socket.io-client
+  [ ] Создать lib/api.ts — axios или fetch обёртка с JWT заголовком
+  [ ] Создать lib/socket.ts — Socket.io клиент (singleton)
+  [ ] Создать store/auth.ts — Zustand: текущий пользователь, токен
+  [ ] Настроить TanStack Query Provider в layout
+  [ ] Создать middleware.ts — редирект на /login если нет токена
+
+СТРАНИЦЫ АВТОРИЗАЦИИ
+  [ ] app/(auth)/login/page.tsx    — форма входа
+  [ ] app/(auth)/register/page.tsx — форма регистрации бизнеса
+
+ДАШБОРД
+  [ ] app/(app)/dashboard/page.tsx
+        Карта 2GIS — маркеры курьеров, обновляются через Socket.io
+        При клике на маркер — имя курьера, текущий заказ
+        Боковая панель — список курьеров онлайн/офлайн
+        Счётчики — заказов сегодня / в доставке / выполнено
+
+ЗАКАЗЫ
+  [ ] app/(app)/orders/page.tsx      — список с фильтрами и поиском
+  [ ] app/(app)/orders/new/page.tsx  — форма создания заказа
+        Телефон → автопоиск клиента в базе
+        Выбрать курьера из выпадающего списка
+  [ ] app/(app)/orders/[id]/page.tsx — детали заказа
+        Статус + история изменений
+        Мини-карта с курьером (live)
+        Кнопка "Скопировать ссылку для клиента"
+        Кнопки: переназначить курьера, отменить заказ
+
+КУРЬЕРЫ
+  [ ] app/(app)/couriers/page.tsx    — список, добавить, деактивировать
+
+НАСТРОЙКИ
+  [ ] app/(app)/settings/page.tsx   — название, логотип, цвет, сотрудники
+
+ПУБЛИЧНАЯ СТРАНИЦА ТРЕКИНГА
+  [ ] app/track/[token]/page.tsx    — без авторизации
+        Карта 2GIS с маркером курьера (обновляется через Socket.io)
+        Имя курьера, статус заказа
+        Брендирование бизнеса (логотип, цвет фона)
+        Полностью адаптивная вёрстка (клиент смотрит с телефона)
+
+──────────────────────────────────────────────────────
+COURIER-APP (Expo)
+──────────────────────────────────────────────────────
+
+  [ ] Настроить expo-router (навигация)
+  [ ] Экран: Вход (app/index.tsx)
+        Ввод телефона → POST send-code → ввод кода → POST verify-code → сохранить JWT
+  [ ] Экран: Мои заказы (app/orders.tsx)
+        Список назначенных заказов на сегодня
+        Pull-to-refresh
+  [ ] Экран: Детали заказа (app/order/[id].tsx)
+        Адрес, имя клиента, состав заказа
+        Кнопки статуса: Забрал → Еду → Доставил / Не застал
+        Кнопка "Открыть в картах" (открывает 2GIS или Яндекс)
+  [ ] GPS трекинг (lib/gps.ts)
+        Запросить разрешение (foreground + background)
+        Кнопка "Начать смену" → POST /api/gps/online + запустить интервал 5с
+        setInterval → POST /api/gps/location { lat, lng }
+        Если нет сети → накапливать в массив → отправить пакетом при появлении
+        Кнопка "Завершить смену" → clearInterval + POST /api/gps/offline
+  [ ] Push-уведомления (expo-notifications)
+        Зарегистрировать токен на сервере при входе
+        Показывать при назначении нового заказа
+
+
+=======================================================
+ЭТАП 2 — GPS РАСШИРЕНИЕ + ВЕСЬ CRM (5–6 недель)
+=======================================================
+
+──────────────────────────────────────────────────────
+GPS РАСШИРЕНИЕ
+──────────────────────────────────────────────────────
+
+УВЕДОМЛЕНИЯ КЛИЕНТАМ
+  [ ] Подключить SendPulse API (SMS)
+  [ ] Подключить WhatsApp Business API
+  [ ] Создать таблицу notification_templates (шаблоны для каждого триггера)
+  [ ] При каждой смене статуса заказа → отправить уведомление клиенту
+        Определить нужный шаблон, подставить переменные, отправить
+  [ ] Логировать каждое уведомление в NotificationLog
+  [ ] Настройки бизнеса: включить/выключить каждый тип уведомлений
+
+АНАЛИТИКА КУРЬЕРОВ
+  [ ] GET /api/analytics/couriers?period=week — данные по курьерам
+        Для каждого курьера:
+          ordersCount, avgDeliveryMinutes, onTimePercent, failedCount
+        Общий рейтинг (сортировка по onTimePercent)
+  [ ] Страница /analytics/couriers в web
+        Таблица рейтинга курьеров
+        График пиковых часов нагрузки (по часам дня)
+        Фильтр по периоду
+
+СМЕНЫ КУРЬЕРОВ
+  [ ] GET    /api/shifts?date=&courierId= — расписание смен
+  [ ] POST   /api/shifts                 — создать смену { courierId, date, startsAt, endsAt }
+  [ ] PATCH  /api/shifts/:id             — обновить
+  [ ] DELETE /api/shifts/:id             — удалить
+  [ ] Страница /couriers/shifts в web — визуальное расписание (таблица по дням)
+  [ ] Валидация на бэкенде: курьер не принимает заказы если не на смене сейчас
+
+──────────────────────────────────────────────────────
+CRM
+──────────────────────────────────────────────────────
+
+CUSTOMERS API
+  [ ] GET  /api/customers              — список клиентов
+        Query: segment, search (name, phone), sort
+  [ ] GET  /api/customers/:id          — карточка: профиль + CrmProfile + заказы
+  [ ] PATCH /api/customers/:id         — обновить { name, email, notes, tags }
+
+СЕГМЕНТЫ (автоматически)
+  [ ] Cron задача (src/cron/segments.ts) — каждую ночь в 03:00
+        Для каждого клиента пересчитать segment:
+          LOST:     lastOrderAt > 90 дней назад
+          SLEEPING: lastOrderAt 30–90 дней назад
+          REGULAR:  ordersCount > 2 и lastOrderAt < 30 дней назад
+          NEW:      ordersCount <= 2
+
+АНАЛИТИКА CRM
+  [ ] GET /api/analytics/crm?period=30 — метрики
+        Клиенты по сегментам (counts)
+        Retention: из клиентов N дней назад, сколько вернулись
+        LTV: среднее и медиана
+        Средняя частота заказов (дней между заказами)
+  [ ] Страница /analytics/crm в web
+        Donut chart сегментов
+        График retention за 30/60/90 дней
+        Таблица топ клиентов по LTV
+
+АВТОСЦЕНАРИИ
+  [ ] GET    /api/scenarios                — список сценариев бизнеса
+  [ ] POST   /api/scenarios                — создать
+  [ ] PATCH  /api/scenarios/:id            — обновить / включить / выключить
+  [ ] DELETE /api/scenarios/:id            — удалить
+  [ ] GET    /api/scenarios/:id/logs       — история срабатываний
+  [ ] Движок выполнения (src/cron/scenarios.ts):
+        Каждые 15 минут — проверить временные триггеры (no_order_days, birthday)
+        При событиях (courier_late, order_failed) — проверить мгновенные триггеры
+  [ ] Страница /scenarios в web
+        Список активных сценариев
+        Форма создания: выбор триггера → параметры → действия
+        Готовые шаблоны на выбор (4 шаблона из PRD)
+        Статистика: сработал N раз
+
+ЗАДАЧИ
+  [ ] GET    /api/tasks                    — список задач
+        Query: status, assignedToId, dueDate
+  [ ] POST   /api/tasks                    — создать
+  [ ] PATCH  /api/tasks/:id               — обновить / выполнить
+  [ ] DELETE /api/tasks/:id               — удалить
+  [ ] Страница /tasks в web
+        Три колонки: Открытые / Просроченные / Выполненные
+        Создать задачу вручную
+        Отметить выполненной
+
+СТРАНИЦЫ WEB (CRM)
+  [ ] app/(app)/customers/page.tsx         — список с сегментами и поиском
+  [ ] app/(app)/customers/[id]/page.tsx    — карточка клиента
+        Профиль + теги + заметки (редактируемые инлайн)
+        CRM данные: LTV, средний чек, заказов, сегмент
+        История заказов (с данными о доставке: курьер, опоздание)
+        Задачи по этому клиенту
+        Кнопка "Создать заказ"
+  [ ] app/(app)/analytics/crm/page.tsx    — CRM аналитика
+  [ ] app/(app)/scenarios/page.tsx        — конструктор сценариев
+  [ ] app/(app)/tasks/page.tsx            — список задач
+
+
+=======================================================
+ЭТАП 3 — МАРКЕТПЛЕЙС (БУДУЩЕЕ)
+=======================================================
+
+Не планируем сейчас.
+Документ создадим отдельно когда наберём 200+ активных бизнесов.
