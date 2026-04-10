@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── БИЗНЕС ───────────────────────────────────────────
+
+model Business {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  logoUrl      String?
+  brandColor   String   @default("#1A56DB")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  users     BusinessUser[]
+  couriers  Courier[]
+  orders    Order[]
+  customers Customer[]
+  scenarios Scenario[]
+  tasks     Task[]
+  shifts    Shift[]
+}
+
+model BusinessUser {
+  id           String   @id @default(uuid())
+  businessId   String
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(DISPATCHER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  tasks    Task[]   @relation("AssignedTo")
+}
+
+enum Role {
+  OWNER
+  DISPATCHER
+}
+
+// ─── КУРЬЕРЫ ──────────────────────────────────────────
+
+model Courier {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  phone      String   @unique
+  photoUrl   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  business  Business          @relation(fields: [businessId], references: [id])
+  orders    Order[]
+  locations CourierLocation[]
+  shifts    Shift[]
+}
+
+model CourierLocation {
+  id         String   @id @default(uuid())
+  courierId  String
+  lat        Float
+  lng        Float
+  recordedAt DateTime @default(now())
+
+  courier Courier @relation(fields: [courierId], references: [id])
+
+  @@index([courierId, recordedAt(sort: Desc)])
+}
+
+model Shift {
+  id          String    @id @default(uuid())
+  businessId  String
+  courierId   String
+  date        DateTime  @db.Date
+  startsAt    DateTime
+  endsAt      DateTime
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  ordersCount Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  courier  Courier  @relation(fields: [courierId], references: [id])
+
+  @@index([businessId, date])
+  @@index([courierId, date])
+}
+
+// ─── КЛИЕНТЫ ──────────────────────────────────────────
+
+model Customer {
+  id         String   @id @default(uuid())
+  businessId String
+  phone      String
+  name       String?
+  email      String?
+  notes      String?
+  tags       String[] @default([])
+  segment    Segment  @default(NEW)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business    @relation(fields: [businessId], references: [id])
+  orders   Order[]
+  profile  CrmProfile?
+  tasks    Task[]
+
+  @@unique([businessId, phone])
+  @@index([businessId, segment])
+}
+
+enum Segment {
+  NEW
+  REGULAR
+  SLEEPING
+  LOST
+}
+
+model CrmProfile {
+  id           String    @id @default(uuid())
+  customerId   String    @unique
+  ordersCount  Int       @default(0)
+  totalSpent   Float     @default(0)
+  avgCheck     Float     @default(0)
+  firstOrderAt DateTime?
+  lastOrderAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+// ─── ЗАКАЗЫ ───────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(uuid())
+  businessId      String
+  customerId      String
+  courierId       String?
+  status          OrderStatus @default(NEW)
+  trackingToken   String      @unique @default(uuid())
+  deliveryAddress String
+  deliveryLat     Float?
+  deliveryLng     Float?
+  items           Json        @default("[]")
+  totalAmount     Float?
+  notes           String?
+  assignedAt      DateTime?
+  pickedUpAt      DateTime?
+  deliveredAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  business      Business             @relation(fields: [businessId], references: [id])
+  customer      Customer             @relation(fields: [customerId], references: [id])
+  courier       Courier?             @relation(fields: [courierId], references: [id])
+  statusHistory OrderStatusHistory[]
+  tasks         Task[]
+
+  @@index([businessId, status])
+  @@index([businessId, createdAt(sort: Desc)])
+  @@index([customerId])
+  @@index([trackingToken])
+  @@index([courierId])
+}
+
+enum OrderStatus {
+  NEW
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  status    String
+  comment   String?
+  changedAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+}
+
+// ─── УВЕДОМЛЕНИЯ ──────────────────────────────────────
+
+model NotificationLog {
+  id         String   @id @default(uuid())
+  businessId String
+  customerId String
+  orderId    String?
+  channel    String
+  text       String
+  status     String
+  sentAt     DateTime @default(now())
+}
+
+// ─── CRM: СЦЕНАРИИ АВТОМАТИЗАЦИИ ─────────────────────
+
+model Scenario {
+  id            String   @id @default(uuid())
+  businessId    String
+  name          String
+  triggerType   String
+  triggerParams Json     @default("{}")
+  actions       Json
+  isActive      Boolean  @default(true)
+  runsCount     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  business Business      @relation(fields: [businessId], references: [id])
+  logs     ScenarioLog[]
+}
+
+model ScenarioLog {
+  id         String   @id @default(uuid())
+  scenarioId String
+  customerId String
+  orderId    String?
+  status     String
+  resultJson Json?
+  executedAt DateTime @default(now())
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id])
+
+  @@index([scenarioId, executedAt(sort: Desc)])
+}
+
+// ─── CRM: ЗАДАЧИ ──────────────────────────────────────
+
+model Task {
+  id           String     @id @default(uuid())
+  businessId   String
+  customerId   String?
+  orderId      String?
+  assignedToId String?
+  title        String
+  description  String?
+  status       TaskStatus @default(OPEN)
+  dueAt        DateTime?
+  doneAt       DateTime?
+  createdAt    DateTime   @default(now())
+
+  business   Business      @relation(fields: [businessId], references: [id])
+  customer   Customer?     @relation(fields: [customerId], references: [id])
+  order      Order?        @relation(fields: [orderId], references: [id])
+  assignedTo BusinessUser? @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  @@index([businessId, status])
+  @@index([assignedToId, status])
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
