@@ -14,12 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": false,
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Приложению нужен доступ к геолокации для отслеживания вашего маршрута доставки.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Приложению нужен постоянный доступ к геолокации для трансляции позиции во время смены.",
-        "UIBackgroundModes": ["location", "fetch"]
-      }
+      "supportsTablet": false
     },
     "android": {
       "adaptiveIcon": {
@@ -27,36 +22,14 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
-      ]
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Приложению нужен доступ к геолокации для трансляции позиции во время смены.",
-          "isAndroidBackgroundLocationEnabled": true,
-          "isAndroidForegroundServiceEnabled": true
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#1A56DB"
-        }
-      ]
+      "expo-secure-store"
     ]
   }
 }
