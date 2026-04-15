@@ -85,7 +85,7 @@ export async function createOrder(businessId: string, dto: CreateOrderDto) {
         customerId: customer.id,
         courierId: dto.courierId || null,
         deliveryAddress: dto.address,
-        items: dto.items ?? [],
+        items: (dto.items ?? []) as object[],
         totalAmount: dto.totalAmount,
         notes: dto.notes,
         status: dto.courierId ? 'ASSIGNED' : 'NEW',

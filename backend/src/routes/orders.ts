@@ -54,7 +54,7 @@ router.post('/', authenticateBusiness, validate(createSchema), async (req, res, 
 
 router.get('/:id', authenticateBusiness, async (req, res, next) => {
   try {
-    const order = await orderService.getOrder(req.params.id, req.user!.businessId)
+    const order = await orderService.getOrder(String(req.params.id), req.user!.businessId)
     res.json(order)
   } catch (err) {
     next(err)
@@ -64,7 +64,7 @@ router.get('/:id', authenticateBusiness, async (req, res, next) => {
 router.patch('/:id/assign', authenticateBusiness, validate(assignSchema), async (req, res, next) => {
   try {
     const order = await orderService.assignCourier(
-      req.params.id,
+      String(req.params.id),
       req.user!.businessId,
       req.body.courierId
     )
@@ -77,7 +77,7 @@ router.patch('/:id/assign', authenticateBusiness, validate(assignSchema), async 
 router.patch('/:id/status', authenticateBusiness, validate(statusSchema), async (req, res, next) => {
   try {
     const order = await orderService.updateOrderStatus(
-      req.params.id,
+      String(req.params.id),
       req.user!.businessId,
       req.body.status,
       req.body.comment
@@ -90,7 +90,7 @@ router.patch('/:id/status', authenticateBusiness, validate(statusSchema), async 
 
 router.delete('/:id', authenticateBusiness, async (req, res, next) => {
   try {
-    await orderService.cancelOrder(req.params.id, req.user!.businessId)
+    await orderService.cancelOrder(String(req.params.id), req.user!.businessId)
     res.json({ ok: true })
   } catch (err) {
     next(err)

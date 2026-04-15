@@ -47,7 +47,7 @@ router.post('/', authenticateBusiness, validate(createSchema), async (req, res, 
 router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, res, next) => {
   try {
     const courier = await courierService.updateCourier(
-      req.params.id,
+      String(req.params.id),
       req.user!.businessId,
       req.body
     )
@@ -59,7 +59,7 @@ router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, r
 
 router.delete('/:id', authenticateBusiness, async (req, res, next) => {
   try {
-    await courierService.deactivateCourier(req.params.id, req.user!.businessId)
+    await courierService.deactivateCourier(String(req.params.id), req.user!.businessId)
     res.json({ ok: true })
   } catch (err) {
     next(err)
