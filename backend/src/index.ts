@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import path from 'path'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -13,11 +14,12 @@ import gpsRouter from './routes/gps'
 import ordersRouter from './routes/orders'
 import trackingRouter from './routes/tracking'
 import customersRouter from './routes/customers'
+import settingsRouter from './routes/settings'
 
 const app = express()
 const httpServer = createServer(app)
 
-app.use(helmet())
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -25,6 +27,7 @@ app.use(
   })
 )
 app.use(express.json({ limit: '1mb' }))
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 
 app.use('/api/auth', authRouter)
 app.use('/api/couriers', couriersRouter)
@@ -32,6 +35,7 @@ app.use('/api/gps', gpsRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/tracking', trackingRouter)
 app.use('/api/customers', customersRouter)
+app.use('/api/settings', settingsRouter)
 
 app.get('/health', async (_req, res) => {
   try {
