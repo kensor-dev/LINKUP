@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 16,
-    gap: 10,
+    paddingBottom: 32,
   },
   shiftBlock: {
     marginBottom: 6,
