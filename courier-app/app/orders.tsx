@@ -303,6 +303,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     gap: 6,
+    marginBottom: 10,
   },
   cardActive: {
     borderColor: '#BFDBFE',
