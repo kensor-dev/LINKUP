@@ -8,6 +8,10 @@ import { errorHandler } from './middleware/errorHandler'
 import { prisma } from './lib/prisma'
 import { redis } from './lib/redis'
 import authRouter from './routes/auth'
+import couriersRouter from './routes/couriers'
+import gpsRouter from './routes/gps'
+import ordersRouter from './routes/orders'
+import trackingRouter from './routes/tracking'
 
 const app = express()
 const httpServer = createServer(app)
@@ -22,6 +26,10 @@ app.use(
 app.use(express.json({ limit: '1mb' }))
 
 app.use('/api/auth', authRouter)
+app.use('/api/couriers', couriersRouter)
+app.use('/api/gps', gpsRouter)
+app.use('/api/orders', ordersRouter)
+app.use('/api/tracking', trackingRouter)
 
 app.get('/health', async (_req, res) => {
   try {
