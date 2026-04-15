@@ -12,6 +12,7 @@ import couriersRouter from './routes/couriers'
 import gpsRouter from './routes/gps'
 import ordersRouter from './routes/orders'
 import trackingRouter from './routes/tracking'
+import customersRouter from './routes/customers'
 
 const app = express()
 const httpServer = createServer(app)
