@@ -1,10 +1,9 @@
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
+    <>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -19,6 +18,6 @@ export default function RootLayout() {
         <Stack.Screen name="orders" options={{ title: 'Мои заказы', headerBackVisible: false }} />
         <Stack.Screen name="order/[id]" options={{ title: 'Заказ' }} />
       </Stack>
-    </SafeAreaProvider>
+    </>
   )
 }
