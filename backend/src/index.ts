@@ -7,6 +7,7 @@ import { initSocket } from './socket'
 import { errorHandler } from './middleware/errorHandler'
 import { prisma } from './lib/prisma'
 import { redis } from './lib/redis'
+import authRouter from './routes/auth'
 
 const app = express()
 const httpServer = createServer(app)
@@ -19,6 +20,8 @@ app.use(
   })
 )
 app.use(express.json({ limit: '1mb' }))
+
+app.use('/api/auth', authRouter)
 
 app.get('/health', async (_req, res) => {
   try {
