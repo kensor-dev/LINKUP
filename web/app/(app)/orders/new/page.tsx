@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
@@ -13,7 +13,8 @@ interface Courier {
 
 export default function NewOrderPage() {
   const router = useRouter()
-  const [phone, setPhone] = useState('')
+  const searchParams = useSearchParams()
+  const [phone, setPhone] = useState(searchParams.get('phone') ?? '')
   const [customerName, setCustomerName] = useState('')
   const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
