@@ -10,6 +10,7 @@ const NAV = [
   { href: '/orders', label: 'Заказы' },
   { href: '/couriers', label: 'Курьеры' },
   { href: '/customers', label: 'Клиенты' },
+  { href: '/tasks', label: 'Задачи' },
   { href: '/settings', label: 'Настройки' },
 ]
 
