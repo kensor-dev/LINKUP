@@ -9,7 +9,7 @@ const router = Router()
 
 const actionSchema = z.object({
   type: z.enum(['create_task', 'send_sms', 'send_whatsapp', 'add_tag']),
-  params: z.record(z.unknown()),
+  params: z.record(z.string(), z.unknown()),
 })
 
 const createSchema = z.object({
@@ -22,14 +22,14 @@ const createSchema = z.object({
     'nth_order',
     'ltv_threshold',
   ]),
-  triggerParams: z.record(z.unknown()).default({}),
+  triggerParams: z.record(z.string(), z.unknown()).default({}),
   actions: z.array(actionSchema).min(1),
 })
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   isActive: z.boolean().optional(),
-  triggerParams: z.record(z.unknown()).optional(),
+  triggerParams: z.record(z.string(), z.unknown()).optional(),
   actions: z.array(actionSchema).optional(),
 })
 
@@ -65,12 +65,12 @@ router.post('/', authenticateBusiness, validate(createSchema), async (req, res, 
 router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, res, next) => {
   try {
     const existing = await prisma.scenario.findFirst({
-      where: { id: req.params.id, businessId: req.user!.businessId },
+      where: { id: String(req.params.id), businessId: req.user!.businessId },
     })
     if (!existing) throw new HttpError(404, 'Сценарий не найден')
 
     const scenario = await prisma.scenario.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         ...(req.body.name !== undefined && { name: req.body.name }),
         ...(req.body.isActive !== undefined && { isActive: req.body.isActive }),
@@ -87,10 +87,10 @@ router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, r
 router.delete('/:id', authenticateBusiness, async (req, res, next) => {
   try {
     const existing = await prisma.scenario.findFirst({
-      where: { id: req.params.id, businessId: req.user!.businessId },
+      where: { id: String(req.params.id), businessId: req.user!.businessId },
     })
     if (!existing) throw new HttpError(404, 'Сценарий не найден')
-    await prisma.scenario.delete({ where: { id: req.params.id } })
+    await prisma.scenario.delete({ where: { id: String(req.params.id) } })
     res.json({ ok: true })
   } catch (err) {
     next(err)
@@ -100,12 +100,12 @@ router.delete('/:id', authenticateBusiness, async (req, res, next) => {
 router.get('/:id/logs', authenticateBusiness, async (req, res, next) => {
   try {
     const existing = await prisma.scenario.findFirst({
-      where: { id: req.params.id, businessId: req.user!.businessId },
+      where: { id: String(req.params.id), businessId: req.user!.businessId },
     })
     if (!existing) throw new HttpError(404, 'Сценарий не найден')
 
     const logs = await prisma.scenarioLog.findMany({
-      where: { scenarioId: req.params.id },
+      where: { scenarioId: String(req.params.id) },
       orderBy: { executedAt: 'desc' },
       take: 50,
     })

@@ -122,7 +122,7 @@ async function runTimeBasedScenarios() {
 
       for (const customer of customers) {
         if (await alreadyFiredToday(scenario.id, customer.id)) continue
-        await executeActions(scenario.id, scenario.actions as Action[], {
+        await executeActions(scenario.id, scenario.actions as unknown as Action[], {
           customerId: customer.id,
           customerName: customer.name ?? undefined,
           customerPhone: customer.phone,
@@ -142,7 +142,7 @@ async function runTimeBasedScenarios() {
 
       for (const profile of profiles) {
         if (await alreadyFiredToday(scenario.id, profile.customerId)) continue
-        await executeActions(scenario.id, scenario.actions as Action[], {
+        await executeActions(scenario.id, scenario.actions as unknown as Action[], {
           customerId: profile.customerId,
           customerName: profile.customer.name ?? undefined,
           customerPhone: profile.customer.phone,
@@ -176,7 +176,7 @@ export async function triggerEventScenarios(
 
     if (await alreadyFiredToday(scenario.id, ctx.customerId)) continue
 
-    await executeActions(scenario.id, scenario.actions as Action[], ctx)
+    await executeActions(scenario.id, scenario.actions as unknown as Action[], ctx)
   }
 }
 

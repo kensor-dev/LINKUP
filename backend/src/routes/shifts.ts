@@ -76,12 +76,12 @@ router.post('/', authenticateBusiness, validate(createSchema), async (req, res, 
 router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, res, next) => {
   try {
     const existing = await prisma.shift.findFirst({
-      where: { id: req.params.id, businessId: req.user!.businessId },
+      where: { id: String(req.params.id), businessId: req.user!.businessId },
     })
     if (!existing) throw new HttpError(404, 'Смена не найдена')
 
     const shift = await prisma.shift.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         ...(req.body.startsAt && { startsAt: new Date(req.body.startsAt) }),
         ...(req.body.endsAt && { endsAt: new Date(req.body.endsAt) }),
@@ -99,10 +99,10 @@ router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, r
 router.delete('/:id', authenticateBusiness, async (req, res, next) => {
   try {
     const existing = await prisma.shift.findFirst({
-      where: { id: req.params.id, businessId: req.user!.businessId },
+      where: { id: String(req.params.id), businessId: req.user!.businessId },
     })
     if (!existing) throw new HttpError(404, 'Смена не найдена')
-    await prisma.shift.delete({ where: { id: req.params.id } })
+    await prisma.shift.delete({ where: { id: String(req.params.id) } })
     res.json({ ok: true })
   } catch (err) {
     next(err)

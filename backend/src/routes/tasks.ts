@@ -30,7 +30,7 @@ router.get('/', authenticateBusiness, async (req, res, next) => {
     const tasks = await prisma.task.findMany({
       where: {
         businessId: req.user!.businessId,
-        ...(status ? { status: status as 'OPEN' | 'DONE' } : {}),
+        ...(status ? { status: String(status) as 'OPEN' | 'DONE' } : {}),
         ...(assignedToId ? { assignedToId: String(assignedToId) } : {}),
       },
       include: {
@@ -72,12 +72,12 @@ router.post('/', authenticateBusiness, validate(createSchema), async (req, res, 
 router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, res, next) => {
   try {
     const existing = await prisma.task.findFirst({
-      where: { id: req.params.id, businessId: req.user!.businessId },
+      where: { id: String(req.params.id), businessId: req.user!.businessId },
     })
     if (!existing) throw new HttpError(404, 'Задача не найдена')
 
     const task = await prisma.task.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         ...(req.body.title !== undefined && { title: req.body.title }),
         ...(req.body.description !== undefined && { description: req.body.description }),
@@ -104,10 +104,10 @@ router.patch('/:id', authenticateBusiness, validate(updateSchema), async (req, r
 router.delete('/:id', authenticateBusiness, async (req, res, next) => {
   try {
     const existing = await prisma.task.findFirst({
-      where: { id: req.params.id, businessId: req.user!.businessId },
+      where: { id: String(req.params.id), businessId: req.user!.businessId },
     })
     if (!existing) throw new HttpError(404, 'Задача не найдена')
-    await prisma.task.delete({ where: { id: req.params.id } })
+    await prisma.task.delete({ where: { id: String(req.params.id) } })
     res.json({ ok: true })
   } catch (err) {
     next(err)
