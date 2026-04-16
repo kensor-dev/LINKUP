@@ -155,7 +155,7 @@ COURIER-APP (Expo)
   [x] Экран: Мои заказы (app/orders.tsx)
   [x] Экран: Детали заказа (app/order/[id].tsx)
   [x] GPS трекинг (lib/gps.ts)
-  [ ] Push-уведомления (expo-notifications)
+  [x] Push-уведомления (expo-notifications)
 
 
 =======================================================
@@ -179,11 +179,11 @@ GPS РАСШИРЕНИЕ
   [x] Страница /analytics/couriers в web
 
 СМЕНЫ КУРЬЕРОВ
-  [ ] GET    /api/shifts
-  [ ] POST   /api/shifts
-  [ ] PATCH  /api/shifts/:id
-  [ ] DELETE /api/shifts/:id
-  [ ] Страница /couriers/shifts в web
+  [x] GET    /api/shifts
+  [x] POST   /api/shifts
+  [x] PATCH  /api/shifts/:id
+  [x] DELETE /api/shifts/:id
+  [x] Страница /couriers/shifts в web
 
 ──────────────────────────────────────────────────────
 CRM
