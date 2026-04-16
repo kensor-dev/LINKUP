@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
 import { api } from '@/lib/api'
 
 interface Courier {
@@ -59,12 +60,20 @@ export default function CouriersPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Курьеры</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          + Добавить курьера
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/couriers/shifts"
+            className="border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            Расписание
+          </Link>
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            + Добавить курьера
+          </button>
+        </div>
       </div>
 
       {showForm && (
