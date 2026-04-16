@@ -69,7 +69,21 @@ router.delete('/:id', authenticateBusiness, async (req, res, next) => {
   }
 })
 
-// ─── Роуты для мобильного приложения курьера ──────────────────────────────────
+// ─── Мобильное приложение курьера ─────────────────────────────────────────────
+
+router.post('/push-token', authenticateCourier, async (req, res, next) => {
+  try {
+    const { token } = req.body
+    if (!token) return res.json({ ok: true })
+    await prisma.courier.update({
+      where: { id: req.courier!.courierId },
+      data: { pushToken: token },
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    next(err)
+  }
+})
 
 router.get('/my-orders', authenticateCourier, async (req, res, next) => {
   try {
