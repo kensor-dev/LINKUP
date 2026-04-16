@@ -16,6 +16,7 @@ import trackingRouter from './routes/tracking'
 import customersRouter from './routes/customers'
 import settingsRouter from './routes/settings'
 import tasksRouter from './routes/tasks'
+import analyticsRouter from './routes/analytics'
 
 const app = express()
 const httpServer = createServer(app)
