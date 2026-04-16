@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { router } from 'expo-router'
 import { api, saveToken, getToken } from '../lib/api'
+import { registerPushToken } from '../lib/notifications'
 
 type Step = 'phone' | 'code'
 
@@ -62,6 +63,7 @@ export default function LoginScreen() {
         code,
       })
       await saveToken(data.accessToken)
+      registerPushToken()
       router.replace('/orders')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
