@@ -18,6 +18,8 @@ import settingsRouter from './routes/settings'
 import tasksRouter from './routes/tasks'
 import analyticsRouter from './routes/analytics'
 import { startSegmentsCron } from './cron/segments'
+import { startScenariosCron } from './cron/scenarios'
+import scenariosRouter from './routes/scenarios'
 
 const app = express()
 const httpServer = createServer(app)
@@ -40,6 +42,7 @@ app.use('/api/tracking', trackingRouter)
 app.use('/api/customers', customersRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/tasks', tasksRouter)
+app.use('/api/scenarios', scenariosRouter)
 app.use('/api/analytics', analyticsRouter)
 
 app.get('/health', async (_req, res) => {
@@ -56,6 +59,7 @@ app.use(errorHandler)
 
 initSocket(httpServer)
 startSegmentsCron()
+startScenariosCron()
 
 const PORT = Number(process.env.PORT) || 3001
 
