@@ -15,6 +15,7 @@ import ordersRouter from './routes/orders'
 import trackingRouter from './routes/tracking'
 import customersRouter from './routes/customers'
 import settingsRouter from './routes/settings'
+import tasksRouter from './routes/tasks'
 
 const app = express()
 const httpServer = createServer(app)
