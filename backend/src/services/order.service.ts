@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma'
 import { redis } from '../lib/redis'
 import { getIO } from '../socket'
 import { HttpError } from '../middleware/errorHandler'
+import { triggerEventScenarios } from '../cron/scenarios'
 
 interface OrderItem {
   name: string
@@ -196,6 +197,29 @@ export async function updateOrderStatus(
   const io = getIO()
   io.to(`business:${businessId}`).emit('order:status', { orderId: id, status })
   io.to(`order:${id}`).emit('order:status', { orderId: id, status })
+
+  // Запустить event-сценарии асинхронно (не блокируем ответ)
+  const customer = await prisma.customer.findUnique({ where: { id: order.customerId } })
+  const ctx = {
+    customerId: order.customerId,
+    orderId: id,
+    customerName: customer?.name ?? undefined,
+    customerPhone: customer?.phone,
+    businessId,
+  }
+
+  if (status === 'FAILED') {
+    triggerEventScenarios('order_failed', ctx).catch(() => null)
+  }
+
+  if (status === 'DELIVERED') {
+    const profile = await prisma.crmProfile.findUnique({ where: { customerId: order.customerId } })
+    const ordersCount = profile?.ordersCount ?? 1
+    if (ordersCount === 1) {
+      triggerEventScenarios('first_order', ctx).catch(() => null)
+    }
+    triggerEventScenarios('nth_order', { ...ctx, nthOrderCount: ordersCount }).catch(() => null)
+  }
 
   return updated
 }
