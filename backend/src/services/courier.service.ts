@@ -2,6 +2,17 @@ import { prisma } from '../lib/prisma'
 import { redis } from '../lib/redis'
 import { HttpError } from '../middleware/errorHandler'
 
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 11 && (digits.startsWith('8') || digits.startsWith('7'))) {
+    return '+7' + digits.slice(1)
+  }
+  if (digits.length === 10) {
+    return '+7' + digits
+  }
+  return phone.startsWith('+') ? phone : '+' + digits
+}
+
 export async function getCouriers(businessId: string) {
   const couriers = await prisma.courier.findMany({
     where: { businessId, isActive: true },
@@ -22,13 +33,14 @@ export async function createCourier(
   businessId: string,
   data: { name: string; phone: string }
 ) {
-  const existing = await prisma.courier.findUnique({ where: { phone: data.phone } })
+  const phone = normalizePhone(data.phone)
+  const existing = await prisma.courier.findUnique({ where: { phone } })
   if (existing) {
     throw new HttpError(409, 'Курьер с таким номером уже существует')
   }
 
   return prisma.courier.create({
-    data: { businessId, name: data.name, phone: data.phone },
+    data: { businessId, name: data.name, phone },
   })
 }
 
@@ -42,7 +54,9 @@ export async function updateCourier(
     throw new HttpError(404, 'Курьер не найден')
   }
 
-  return prisma.courier.update({ where: { id }, data })
+  const updateData = { ...data }
+  if (updateData.phone) updateData.phone = normalizePhone(updateData.phone)
+  return prisma.courier.update({ where: { id }, data: updateData })
 }
 
 export async function deactivateCourier(id: string, businessId: string) {

@@ -1,19 +1,23 @@
-import * as Notifications from 'expo-notifications'
+import Constants from 'expo-constants'
 import { Platform } from 'react-native'
 import { api } from './api'
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-})
+const isExpoGo = Constants.appOwnership === 'expo'
 
 export async function registerPushToken() {
-  if (Platform.OS === 'web') return
+  if (isExpoGo || Platform.OS === 'web') return
+
+  const Notifications = await import('expo-notifications')
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  })
 
   const { status: existing } = await Notifications.getPermissionsAsync()
   let finalStatus = existing
@@ -30,18 +34,30 @@ export async function registerPushToken() {
   try {
     await api.post('/api/couriers/push-token', { token })
   } catch {
-    // игнорируем ошибку регистрации токена
+    // не блокируем если токен не сохранился
   }
 }
 
 export function addNotificationListener(
-  handler: (notification: Notifications.Notification) => void
+  handler: (notification: unknown) => void
 ) {
-  return Notifications.addNotificationReceivedListener(handler)
+  if (isExpoGo) return { remove: () => {} }
+
+  let sub: { remove: () => void } = { remove: () => {} }
+  import('expo-notifications').then((Notifications) => {
+    sub = Notifications.addNotificationReceivedListener(handler as never)
+  })
+  return { remove: () => sub.remove() }
 }
 
 export function addResponseListener(
-  handler: (response: Notifications.NotificationResponse) => void
+  handler: (response: unknown) => void
 ) {
-  return Notifications.addNotificationResponseReceivedListener(handler)
+  if (isExpoGo) return { remove: () => {} }
+
+  let sub: { remove: () => void } = { remove: () => {} }
+  import('expo-notifications').then((Notifications) => {
+    sub = Notifications.addNotificationResponseReceivedListener(handler as never)
+  })
+  return { remove: () => sub.remove() }
 }

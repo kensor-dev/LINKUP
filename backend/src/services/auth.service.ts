@@ -8,6 +8,20 @@ const SALT_ROUNDS = 12
 const JWT_EXPIRES_IN = '7d'
 const COURIER_CODE_TTL = 5 * 60
 
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 11 && digits.startsWith('8')) {
+    return '+7' + digits.slice(1)
+  }
+  if (digits.length === 11 && digits.startsWith('7')) {
+    return '+7' + digits.slice(1)
+  }
+  if (digits.length === 10) {
+    return '+7' + digits
+  }
+  return phone.startsWith('+') ? phone : '+' + digits
+}
+
 function signToken(payload: object): string {
   return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: JWT_EXPIRES_IN })
 }
@@ -89,28 +103,35 @@ export async function loginBusiness(email: string, password: string) {
   }
 }
 
+function last10(phone: string): string {
+  return phone.replace(/\D/g, '').slice(-10)
+}
+
 export async function sendCourierCode(phone: string) {
-  const courier = await prisma.courier.findUnique({ where: { phone } })
-  if (!courier || !courier.isActive) {
+  const suffix = last10(phone)
+  const courier = await prisma.courier.findFirst({
+    where: { phone: { endsWith: suffix }, isActive: true },
+  })
+  if (!courier) {
     throw new HttpError(404, 'Курьер с таким номером не найден')
   }
 
   const code = String(Math.floor(1000 + Math.random() * 9000))
-  await redis.set(`sms:code:${phone}`, code, 'EX', COURIER_CODE_TTL)
+  await redis.set(`sms:code:${suffix}`, code, 'EX', COURIER_CODE_TTL)
 
-  // В продакшене здесь будет отправка SMS через SendPulse
   return { code, message: 'Код отправлен' }
 }
 
 export async function verifyCourierCode(phone: string, code: string) {
-  const stored = await redis.get(`sms:code:${phone}`)
+  const suffix = last10(phone)
+  const stored = await redis.get(`sms:code:${suffix}`)
   if (!stored || stored !== code) {
     throw new HttpError(400, 'Неверный или истёкший код')
   }
 
-  await redis.del(`sms:code:${phone}`)
+  await redis.del(`sms:code:${suffix}`)
 
-  const courier = await prisma.courier.findUnique({ where: { phone } })
+  const courier = await prisma.courier.findFirst({ where: { phone: { endsWith: suffix } } })
   if (!courier) {
     throw new HttpError(404, 'Курьер не найден')
   }

@@ -11,8 +11,9 @@ export default function RootLayout() {
       if (token) registerPushToken()
     })
 
-    const sub = addResponseListener((response) => {
-      const orderId = response.notification.request.content.data?.orderId
+    const sub = addResponseListener((response: unknown) => {
+      const r = response as { notification: { request: { content: { data?: { orderId?: string } } } } }
+      const orderId = r.notification.request.content.data?.orderId
       if (orderId) router.push(`/order/${orderId}`)
     })
 
