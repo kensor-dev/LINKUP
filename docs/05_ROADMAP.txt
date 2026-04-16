@@ -175,8 +175,8 @@ GPS РАСШИРЕНИЕ
   [ ] Настройки бизнеса: включить/выключить каждый тип уведомлений
 
 АНАЛИТИКА КУРЬЕРОВ
-  [ ] GET /api/analytics/couriers?period=week
-  [ ] Страница /analytics/couriers в web
+  [x] GET /api/analytics/couriers?period=week
+  [x] Страница /analytics/couriers в web
 
 СМЕНЫ КУРЬЕРОВ
   [ ] GET    /api/shifts
@@ -195,11 +195,11 @@ CUSTOMERS API
   [x] PATCH /api/customers/:id
 
 СЕГМЕНТЫ (автоматически)
-  [ ] Cron задача — каждую ночь в 03:00 пересчитывать сегменты
+  [x] Cron задача — каждую ночь в 03:00 пересчитывать сегменты
 
 АНАЛИТИКА CRM
-  [ ] GET /api/analytics/crm?period=30
-  [ ] Страница /analytics/crm в web
+  [x] GET /api/analytics/crm?period=30
+  [x] Страница /analytics/crm в web
 
 АВТОСЦЕНАРИИ
   [ ] GET    /api/scenarios
@@ -211,18 +211,19 @@ CUSTOMERS API
   [ ] Страница /scenarios в web
 
 ЗАДАЧИ
-  [ ] GET    /api/tasks
-  [ ] POST   /api/tasks
-  [ ] PATCH  /api/tasks/:id
-  [ ] DELETE /api/tasks/:id
-  [ ] Страница /tasks в web
+  [x] GET    /api/tasks
+  [x] POST   /api/tasks
+  [x] PATCH  /api/tasks/:id
+  [x] DELETE /api/tasks/:id
+  [x] Страница /tasks в web
 
 СТРАНИЦЫ WEB (CRM)
   [x] app/(app)/customers/page.tsx
   [x] app/(app)/customers/[id]/page.tsx
-  [ ] app/(app)/analytics/crm/page.tsx
+  [x] app/(app)/analytics/crm/page.tsx
+  [x] app/(app)/analytics/couriers/page.tsx
   [ ] app/(app)/scenarios/page.tsx
-  [ ] app/(app)/tasks/page.tsx
+  [x] app/(app)/tasks/page.tsx
 
 
 =======================================================
