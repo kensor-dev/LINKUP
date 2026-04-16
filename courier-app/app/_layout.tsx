@@ -1,7 +1,24 @@
+import { useEffect } from 'react'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { registerPushToken, addResponseListener } from '../lib/notifications'
+import { router } from 'expo-router'
+import { getToken } from '../lib/api'
 
 export default function RootLayout() {
+  useEffect(() => {
+    getToken().then((token) => {
+      if (token) registerPushToken()
+    })
+
+    const sub = addResponseListener((response) => {
+      const orderId = response.notification.request.content.data?.orderId
+      if (orderId) router.push(`/order/${orderId}`)
+    })
+
+    return () => sub.remove()
+  }, [])
+
   return (
     <>
       <StatusBar style="dark" />
