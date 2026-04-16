@@ -11,6 +11,8 @@ const NAV = [
   { href: '/couriers', label: 'Курьеры' },
   { href: '/customers', label: 'Клиенты' },
   { href: '/tasks', label: 'Задачи' },
+  { href: '/analytics/crm', label: 'CRM аналитика' },
+  { href: '/analytics/couriers', label: 'Курьеры: стат.' },
   { href: '/settings', label: 'Настройки' },
 ]
 
