@@ -202,13 +202,13 @@ CUSTOMERS API
   [x] Страница /analytics/crm в web
 
 АВТОСЦЕНАРИИ
-  [ ] GET    /api/scenarios
-  [ ] POST   /api/scenarios
-  [ ] PATCH  /api/scenarios/:id
-  [ ] DELETE /api/scenarios/:id
-  [ ] GET    /api/scenarios/:id/logs
-  [ ] Движок выполнения (src/cron/scenarios.ts)
-  [ ] Страница /scenarios в web
+  [x] GET    /api/scenarios
+  [x] POST   /api/scenarios
+  [x] PATCH  /api/scenarios/:id
+  [x] DELETE /api/scenarios/:id
+  [x] GET    /api/scenarios/:id/logs
+  [x] Движок выполнения (src/cron/scenarios.ts)
+  [x] Страница /scenarios в web
 
 ЗАДАЧИ
   [x] GET    /api/tasks
@@ -222,7 +222,7 @@ CUSTOMERS API
   [x] app/(app)/customers/[id]/page.tsx
   [x] app/(app)/analytics/crm/page.tsx
   [x] app/(app)/analytics/couriers/page.tsx
-  [ ] app/(app)/scenarios/page.tsx
+  [x] app/(app)/scenarios/page.tsx
   [x] app/(app)/tasks/page.tsx
 
 
