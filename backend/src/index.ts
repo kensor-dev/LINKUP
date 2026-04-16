@@ -17,6 +17,7 @@ import customersRouter from './routes/customers'
 import settingsRouter from './routes/settings'
 import tasksRouter from './routes/tasks'
 import analyticsRouter from './routes/analytics'
+import { startSegmentsCron } from './cron/segments'
 
 const app = express()
 const httpServer = createServer(app)
