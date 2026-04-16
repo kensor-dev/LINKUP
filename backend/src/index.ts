@@ -37,6 +37,7 @@ app.use('/api/orders', ordersRouter)
 app.use('/api/tracking', trackingRouter)
 app.use('/api/customers', customersRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/api/tasks', tasksRouter)
 
 app.get('/health', async (_req, res) => {
   try {
