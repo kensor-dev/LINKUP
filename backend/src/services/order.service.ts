@@ -4,6 +4,7 @@ import { redis } from '../lib/redis'
 import { getIO } from '../socket'
 import { HttpError } from '../middleware/errorHandler'
 import { triggerEventScenarios } from '../cron/scenarios'
+import { sendExpoPush } from '../lib/push'
 
 interface OrderItem {
   name: string
@@ -152,6 +153,7 @@ export async function assignCourier(id: string, businessId: string, courierId: s
   const updated = await prisma.order.update({
     where: { id },
     data: { courierId, status: 'ASSIGNED', assignedAt: new Date() },
+    include: { customer: { select: { name: true, phone: true } } },
   })
 
   await prisma.orderStatusHistory.create({
@@ -159,6 +161,17 @@ export async function assignCourier(id: string, businessId: string, courierId: s
   })
 
   getIO().to(`business:${businessId}`).emit('order:status', { orderId: id, status: 'ASSIGNED' })
+
+  const courier = await prisma.courier.findUnique({ where: { id: courierId } })
+  if (courier?.pushToken) {
+    const customerName = updated.customer?.name ?? updated.customer?.phone ?? 'Клиент'
+    sendExpoPush(
+      courier.pushToken,
+      'Новый заказ',
+      `${customerName} — ${updated.deliveryAddress}`,
+      { orderId: id }
+    )
+  }
 
   return updated
 }
