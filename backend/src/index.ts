@@ -55,6 +55,7 @@ app.get('/health', async (_req, res) => {
 app.use(errorHandler)
 
 initSocket(httpServer)
+startSegmentsCron()
 
 const PORT = Number(process.env.PORT) || 3001
 
