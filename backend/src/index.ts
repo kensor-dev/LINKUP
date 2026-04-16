@@ -20,6 +20,7 @@ import analyticsRouter from './routes/analytics'
 import { startSegmentsCron } from './cron/segments'
 import { startScenariosCron } from './cron/scenarios'
 import scenariosRouter from './routes/scenarios'
+import shiftsRouter from './routes/shifts'
 
 const app = express()
 const httpServer = createServer(app)
