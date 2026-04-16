@@ -55,6 +55,7 @@ model Courier {
   name       String
   phone      String   @unique
   photoUrl   String?
+  pushToken  String?
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
