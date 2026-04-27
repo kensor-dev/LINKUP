@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const geist = Geist({ subsets: ["latin"] });
+const manrope = Manrope({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
   title: "LINKUP — GPS и CRM для курьеров",
@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className="h-full">
-      <body className={`${geist.className} h-full bg-gray-50`}>
+      <body className={`${manrope.className} h-full bg-slate-100`}>
         <Providers>{children}</Providers>
       </body>
     </html>
